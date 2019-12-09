@@ -1,0 +1,105 @@
+#EJEMPLO DE MINERÍA DE TEXTO
+#ASIGNATURA: Análisis de Datos Multivariantes
+#AUTORES: Silvia Nathalia Mantilla / Samuel Martínez Hernández
+
+#Instalamos las librerías necesaria:
+
+#tm, específico para minería de textos.
+library(tm)
+library(SnowballC)
+#wordcloud, para graficar nubes de palabras.
+library(wordcloud)
+#ggplot2, una gramática de gráficas que expande las funciones base de R.
+library(ggplot2)
+#dplyr, con funciones auxiliares para manipular y transformar datos. 
+#En particular, el operador %>% permite escribir funciones más legibles para seres humanos.
+library(dplyr)
+#readr, facilitará leer y escribir documentos.
+library(readr)
+#cluster, con funciones para realizar análisis de grupos.
+library(cluster)
+
+#Cargamos el Texto que se va a visualizar (Descargado de Gutemberg)
+nov_raw <- read_lines("C:\\Users\\Usuario\\Desktop\\49836-0.txt")
+
+#PREPARACIÓN DEL TEXTO: Usamos la función str() permite crear elementos con una mayor cantidad de caracteres
+#ya que los textos obtenidos de la base de datos Gutemberg solo tienen 70 caracteres por renglón
+##  chr [1:7894] "NIEBLA" "" "" "" "" "I" "" "" ...
+str(nov_raw)
+
+#CREACIÓN DE PARRAFOS: hacemos grupos de diez renglones consecutivos.
+diez <- rep(1:ceiling(length(nov_raw)/10), each = 10)
+diez <- diez[1:length(nov_raw)]
+
+#Combinamos diez con now_raw y los asignamos al objeto nov_text. 
+#Así tenemos una columna con los renglones de texto 
+#y otra con un número que identifica a qué grupo de diez renglones pertenece.
+#Convertimos a data.frame para que las columnas estén identificadas con un nombre
+
+nov_text <- cbind(diez, nov_raw) %>% data.frame()
+
+#Usamos la función aggregate para concatenar los renglones dejando un " " entre palabras
+nov_text <- aggregate(formula = nov_raw ~ diez,
+                      data = nov_text,
+                      FUN = paste,
+                      collapse = " ")
+
+#Transformamos nov_text en una matrix, ya que sólo necesitamos la columna con los ahora párrafos de texto
+nov_text <- nov_text %>% select(nov_raw) %>% as.matrix
+
+dim(nov_text)
+
+#LIMPIEZA DE TEXTO
+
+#Empezamos por aseguramos de que no queden caracteres especiales de la codificación
+nov_text <- gsub("[[:cntrl:]]", " ", nov_text)
+
+#Convertimos todo a minúsculas
+nov_text <- tolower(nov_text)
+
+#Las funciones removeWords con stopwords("spanish") las usamos para eliminar palabras vacias,
+#es decir, las que no agregen valr al análisis
+nov_text <- removeWords(nov_text, words = stopwords("spanish"))
+
+#Eliminamos la puntuación 
+nov_text <- removePunctuation(nov_text)
+
+#Eliminamos numeraciones, ya que no agregan importancia al texto "La Niebla"
+nov_text <- removeNumbers(nov_text)
+
+#Eliminamos los espacios vacios que nos quedaran de la concatenación realizada anteriormente
+nov_text <- stripWhitespace(nov_text)
+
+#ANÁLISIS DEL CORPUS: realizamos el análisis del cuerpo del texto}
+nov_corpus <- Corpus(VectorSource(nov_text))
+
+#Nuestro Corpus se compone de los parrafos del libro Niebla
+#los asignaremos al objeto nov_corpus usando las funciones VectorSource y Corpus.
+nov_corpus <- Corpus(VectorSource(nov_text))
+
+nov_corpus
+
+#NUBE DE PALABRAS: Crearemos una nube de palabras con nuestro corpus
+#Mapeamos nuestro Corpus como un documento de texto plano
+#usamos las funciones tm_map y PlainTextDocument
+nov_ptd <- tm_map(nov_corpus, PlainTextDocument)
+
+#Creamos la nube de palabras por medio de la función wordcloud que es para graficar 
+wordcloud(nov_ptd, max.words = 80, random.order = F, colors = brewer.pal(name = "Dark2", n = 8))
+
+#DEPURACIÓN DE LA NUBE
+#Como se pudo visualizar, dentro de la nube de palabras se encuentran algunas que no aportan importancia dentro del análisis, 
+#tales como "usted", "pues", "tal", "tan", "así", "dijo", "cómo", "sino", "entonces, procedemos a eliminarlas
+#Usamos la función removeWords indicando en el argumento words que palabras deseamos eliminar de nuestro Corpus.
+
+nov_text <- removeWords(nov_text, words = c("usted", "pues", "tal", "tan", "así", "dijo", "cómo", "sino", "entonces", "aunque", "don", "doña"))
+
+nov_corpus <- nov_text %>% VectorSource() %>% Corpus()
+nov_ptd <- nov_corpus %>% tm_map(PlainTextDocument)
+
+#Creamos la segunda nube de palabras, donde podemos visualizar el cambio en nuestro análisis del corpus
+wordcloud(
+  nov_ptd, max.words = 80, 
+  random.order = F, 
+  colors=brewer.pal(name = "Dark2", n = 8)
+)
